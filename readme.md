@@ -1,7 +1,9 @@
 # Human–Object–Scene Interaction Pipeline (PKU-MMD)
 
 This repository provides a complete and easy to use pipeline for analyzing and visualize Human-Object–Scene interactions using the [PKU-MMD dataset](https://struct002.github.io/PKUMMD/). In this work only**RGB videos**, **skeleton data**, and **label files** are used.  The **depth** and **infrared** data are not included or required for this pipeline. It automatically aligns skeletons, detects objects, projects 3D poses to RGB frames, and generates final interaction videos for each camera view (L, M, R).
+
 ![Sample Output](Sample.jpg)
+
 ![Sample Output](outputs/3D_ploting_frame_897.png)
 
 ## Project Structure
@@ -11,19 +13,21 @@ The config/settings.yaml contains central configurations. The scripts folder con
 3. rgb_overlay.py	# Draws skeletons on videos
 4. hoi.py		# Creates interaction overlays
 5. project_utils.py	# Contains all helper functions
-All outputs are saved automatically under /outputs. The data folder contains the PKU-MMD dataset of case “A01N09”. If you want to visualize any other case, please download data from PKU-MMD dataset and paste in the respective folders.
+6. 
+All outputs are saved automatically under /outputs. The data folder contains the PKU-MMD dataset of case “A01N09”.
 
 ## Setup Instructions
 
 ### 1. Install Required Packages
 Run the following command in your terminal or virtual environment:
+
 ```bash
 pip install numpy opencv-python matplotlib pyyaml ultralytics torch
 ```
 This installs all required dependencies.
 
 ### 2. Edit Configuration
-Open [`config/settings.yaml`](config/settings.yaml) to set dataset paths and case name, "A01N09" To process another case simply change the value.
+Open [`config/settings.yaml`](config/settings.yaml) to set dataset paths and case name, "A01N09", To process another case simply change the value and tune the camera principal and focal length points according to the case you want to visualize.
 
 ```yaml
 case: "A01N09"
