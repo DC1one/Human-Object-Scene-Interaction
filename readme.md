@@ -6,14 +6,13 @@ This repository provides a complete and easy to use pipeline for analyzing and v
 
 ![Sample Output](outputs/3D_ploting_frame_897.png)
 
-## Project Structure
+## Setup Structure
 The config/settings.yaml contains central configurations. The scripts folder contains all scripts including main.py. This executes:
 1. skeleton.py	# Aligns skeletons
 2. objects.py	# Runs YOLO detection
 3. rgb_overlay.py	# Draws skeletons on videos
 4. hoi.py		# Creates interaction overlays
 5. project_utils.py	# Contains all helper functions
-6. 
 All outputs are saved automatically under /outputs. The data folder contains the PKU-MMD dataset of case “A01N09”.
 
 ## Setup Instructions
