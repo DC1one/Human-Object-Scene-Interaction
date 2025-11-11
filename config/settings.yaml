@@ -1,0 +1,105 @@
+# Current Case
+case: "A01N09"
+
+#------------------------------------------------------
+# Dataset paths and outputs
+paths:
+  skel_l: "/home/kakarot/coding_task/data/skeleton/L"
+  skel_m: "/home/kakarot/coding_task/data/skeleton/M"
+  skel_r: "/home/kakarot/coding_task/data/skeleton/R"
+  rgb_l:  "/home/kakarot/coding_task/data/rgb_video/L"
+  rgb_m:  "/home/kakarot/coding_task/data/rgb_video/M"
+  rgb_r:  "/home/kakarot/coding_task/data/rgb_video/R"
+  label_l: "/home/kakarot/coding_task/data/label/L"
+  label_m: "/home/kakarot/coding_task/data/label/M"
+  label_r: "/home/kakarot/coding_task/data/label/R"
+  # Outputs
+  output:  "/home/kakarot/coding_task/outputs"
+  aligned: "/home/kakarot/coding_task/outputs/aligned"
+  detection: "/home/kakarot/coding_task/outputs/detection"
+  visualization: "/home/kakarot/coding_task/outputs/visualization"
+
+#--------------------------------------------------------------
+
+# Camera parameters and skeleton alignment
+camera:
+  # Left view L
+  fx_l: 1220 # 1050
+  fy_l: 1220 # 1050
+  cx_l: 1320 # 960
+  cy_l: 400 # 520
+  # Middle view M
+  fx_m: 1070 # 1040
+  fy_m: 1070
+  cx_m: 980
+  cy_m: 550
+  # Right side view R
+  fx_r: 1050 # 1100
+  fy_r: 1050 # 1100
+  cx_r: 1180 # 960
+  cy_r: 610 # 590
+
+  # Skeleton axis
+  axis_sign_l: [ 1.0, -1.0, 1.0 ]
+  axis_sign_m: [ 1.0, -1.0, 1.0 ] # [ -1.0, 1.0, 1.0 ]
+  axis_sign_r: [ 1.0, -1.0, 1.0 ] # [ -1.0, 1.0, -1.0 ]
+
+#_______________________________________________________
+# Visualization
+visualization:
+  skeleton_color: ["r", "b"]
+  frame_sample: 1.0 # 0.5
+  rgb_width: 1920
+  rgb_height: 1080
+
+#---------------------------------------
+# Sync options
+sync:
+  skele_fps: 30.0
+  frame_offset_L: 0
+  frame_offset_M: 0
+  frame_offset_R: -29 # 0
+  auto_offset: false # set it true for auto estimate per view
+  auto_offset_max: 60
+  auto_offset_probe: 300
+
+#----------------------------------
+# Object detection
+objects:
+  model: "yolo11x.pt" # yolo11n.pt, yolov8n.pt
+  conf: 0.15
+  iou: 0.45
+  max_det: 200 # 300
+  classes: []
+  views: ["L", "M", "R"]
+
+  # runtime and performance nobs
+  device: "auto"
+  imgsz: 960 # 1280
+  agnostic_nms: true
+  frame_stride: 1
+  max_frames: 0 # process full video
+  log_every: 150
+  checkpoint_every: 300 # save partial .npz file
+  write_det_preview: false  # set true if export detection only videos
+
+  # second pass
+  second_pass: true # set to false if no need for two passes or process is slow
+  redetect_on: [ "person"]
+  crop_scale: 1.25 # 1.15
+  second_conf: 0.12 #0.14
+  second_iou: 0.5
+
+  # HOI scene
+  interact_px: 120 # 80
+  chair_aliases: [ "chair" ]
+  pickup_px: 160
+  suppress_draw: ["person"]# dont draw class labels on HOI overlay video
+
+  class_aliases:
+    "baseball glove": "cap"
+    "hat": "cap"
+    "helmet": "cap"
+    "sports ball": "cap"
+    "backpack": "jacket"
+    "handbag": "jacket"
