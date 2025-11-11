@@ -13,6 +13,7 @@ The config/settings.yaml contains central configurations. The scripts folder con
 3. rgb_overlay.py	# Draws skeletons on videos
 4. hoi.py		# Creates interaction overlays
 5. project_utils.py	# Contains all helper functions
+
 All outputs are saved automatically under /outputs. The data folder contains the PKU-MMD dataset of case “A01N09”.
 
 ## Setup Instructions
