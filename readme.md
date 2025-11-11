@@ -48,7 +48,7 @@ To visualize another case:
 
 
 ## Author Information
-**Developed by:** [Muhammad Taha Tariq]()  
+**Developed by:** [Muhammad Taha Tariq](https://scholar.google.com/citations?hl=en&pli=1&user=CjFPcqQAAAAJ)  
 To visualize and understand **human–object–scene interaction relationships** in multi-view videos.
 
 If you find this project helpful, please consider giving it a star on GitHub and citing it in your research articles.
