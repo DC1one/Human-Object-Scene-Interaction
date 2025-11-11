@@ -1,4 +1,4 @@
-# Human–Object–Scene Interaction Pipeline (PKU-MMD)
+# Human–Object–Scene Interaction
 
 This repository provides a complete and easy to use pipeline for analyzing and visualize Human-Object–Scene interactions using the [PKU-MMD dataset](https://struct002.github.io/PKUMMD/). In this work only**RGB videos**, **skeleton data**, and **label files** are used.  The **depth** and **infrared** data are not included or required for this pipeline. It automatically aligns skeletons, detects objects, projects 3D poses to RGB frames, and generates final interaction videos for each camera view (L, M, R).
 
