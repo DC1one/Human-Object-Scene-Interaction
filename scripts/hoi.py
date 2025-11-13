@@ -1,15 +1,17 @@
 import os
 import cv2
 import numpy as np
-from project_utils import cfg, paths, Case, camera, axis, proj_xyz_to_uv, BONES,load_labels, active_at, act_name
+from project_utils import cfg, paths, Case, camera, axis, proj_xyz_to_uv, BONES, load_labels, active_at, act_name
 
 case = Case
+sync = cfg.get("sync", {})
 obj_cfg = cfg.get("objects")
 Inter_px = int(obj_cfg.get("interact_px"))
-Sup_draw =set([str(s).lower() for s in obj_cfg.get("suppress_draw")]) #person
-Alias = {(str(k) or "").lower(): (str(v)or "").lower() for k, v in obj_cfg.get("class_aliases").items()}
+Sup_draw =set([str(s).lower() for s in obj_cfg.get("suppress_draw")])  #person
+Alias = {(str(k) or "").lower(): (str(v) or "").lower() for k, v in obj_cfg.get("class_aliases").items()}
 sync_cfg = cfg.get("sync")
 Skele_fps = float(sync_cfg.get("skele_fps"))
+scene_label = str(sync.get("scene_l"))
 Frame_off = {
     "L": int(sync_cfg.get("frame_offset_L")),
     "M": int(sync_cfg.get("frame_offset_M")),
@@ -24,7 +26,7 @@ skeles={}
 for v, p in skel_paths.items():
     if os.path.isfile(p):
         arr = np.load(p).astype(np.float32)
-        if arr.ndim ==3 and arr.shape [1:] == (25,3):
+        if arr.ndim == 3 and arr.shape[1:] == (25, 3):
             skeles[v] = arr
         else:
             print("bad skeleton shape", v, arr.shape)
@@ -32,11 +34,11 @@ for v, p in skel_paths.items():
         print("Missing aligned skeleton", v, p)
 
 rgb_paths = {
-    "L": os.path.join(paths.get("rgb_l",""), f"{case}-L_color.avi"),
-    "M": os.path.join(paths.get("rgb_m",""), f"{case}-M_color.avi"),
-    "R": os.path.join(paths.get("rgb_r",""), f"{case}-R_color.avi")}
-caps, sizes,fps_view, ratio_vm = {}, {}, {},{}
-for v in ("L","M","R"):
+    "L": os.path.join(paths.get("rgb_l", ""), f"{case}-L_color.avi"),
+    "M": os.path.join(paths.get("rgb_m", ""), f"{case}-M_color.avi"),
+    "R": os.path.join(paths.get("rgb_r", ""), f"{case}-R_color.avi")}
+caps, sizes, fps_view, ratio_vm = {}, {}, {},{}
+for v in ("L", "M", "R"):
     if v in skeles:
         cap = cv2.VideoCapture(rgb_paths[v])
         caps[v] =cap
@@ -48,13 +50,13 @@ for v in ("L","M","R"):
         ratio_vm[v] = Skele_fps/fps
         # print(v,"=", w, h, ratio_vm[v])
 
-det_dir = os.path.join(paths.get("output"),"detections")
+det_dir = os.path.join(paths.get("output"), "detections")
 dets = {}
 for v in caps:
     npz = os.path.join(det_dir, f"dets_{v}_{case}.npz")
     d = np.load(npz, allow_pickle=True)
-    dets[v] = {"frames": d["frames"], "boxes": d["boxes"], "confs": d["confs"],
-        "ids": d["ids"], "names": d["names"]}
+    dets[v] = {"frames": d["frames"],"boxes": d["boxes"], "confs": d["confs"],
+               "ids": d["ids"], "names": d["names"]}
     # print("dets loaded", npz)
 
 res_dir =os.path.join(paths.get("output"), "results")
@@ -63,23 +65,25 @@ writers, out_paths = {},{}
 for v in caps:
     w, h = sizes[v]
     outp = os.path.join(res_dir, f"hoi_{v}_{case}.avi")
-    writers[v] = cv2.VideoWriter(outp, fourcc, fps_view[v], (w, h))
+    writers[v] = cv2.VideoWriter(outp, fourcc,fps_view[v], (w, h))
     out_paths[v] = outp
 
 # Camera bits
 Kmap = {v: camera(v) for v in caps}
-AXmap = {v: axis(v)   for v in caps}
+AXmap = {v:axis(v) for v in caps}
 Hand_joints = [7, 11, 21, 22, 23, 24]
 
 def box_center(b):
     x1, y1, x2, y2 = b
-    return np.array([(x1+x2)/2.0, (y1+y2)/2.0], np.float32)
+    return np.array([(x1 + x2) / 2.0, (y1 + y2) / 2.0], np.float32)
 
-def associate(uv_25x2, boxes, names, px_thr):
-    if boxes.size ==0:
+def associate(uv_25x2, boxes, names, px_thr, valid):
+    if boxes.size == 0:
         return []
     out= []
     for hj in Hand_joints:
+        if not valid[hj]:
+            continue
         p = uv_25x2[hj]
         dmin,argmin,aname = 1e9, -1, None
         for bi, b in enumerate(boxes):
@@ -87,18 +91,29 @@ def associate(uv_25x2, boxes, names, px_thr):
             d = float(np.linalg.norm(p-c))
             if d < dmin:
                 dmin, argmin, aname = d, bi, names[bi] if len(names) > bi else "obj"
-        if dmin < px_thr and argmin >= 0:
-            out.append((hj, argmin, aname, dmin))
+        if argmin >= 0:
+            # Objects threshold = hand must be reasonably close
+            x1, y1, x2, y2 = boxes[argmin]
+            bw = max(1.0, float(x2 - x1))
+            bh = max(1.0, float(y2 - y1))
+            local_thr = min(px_thr, 0.6 * max(bw, bh))
+            if dmin < local_thr:
+                out.append((hj, argmin, aname, dmin))
     return out
 
-def draw_boxes(img, boxes, names):
+def draw_boxes(img, boxes, names, interacting_idx= None):
+    if interacting_idx is None:
+        interacting_idx = set()
     for i, b in enumerate(boxes):
         name = (names[i] if i < len(names) else "obj") or "obj"
         if name.lower() in Sup_draw:
             continue
-        x1, y1, x2,y2 = map(int, b)
-        cv2.rectangle(img, (x1,y1), (x2,y2), (0,255,0),2)
-        cv2.putText(img, name, (x1, max(0,y1-6)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,0), 2, cv2.LINE_AA)
+        x1, y1, x2, y2 = map(int, b)
+        # if interacting objects highlight with red else green
+        color = (0,255, 0) if i not in interacting_idx else (0, 0, 255)
+        thickness = 2 if i not in interacting_idx else 3
+        cv2.rectangle(img, (x1, y1), (x2, y2), color, thickness)
+        cv2.putText(img,name, (x1, max(0, y1 - 6)), cv2.FONT_HERSHEY_SIMPLEX,0.6, color,2, cv2.LINE_AA)
 
 def draw_interactions(img, uv, boxes, inter):
     drawn = set()
@@ -110,28 +125,29 @@ def draw_interactions(img, uv, boxes, inter):
             continue  # skip duplicate same object links
         p = tuple(np.round(uv[hj]).astype(int))
         c = tuple(np.round(box_center(boxes[bi])).astype(int))
-        cv2.line(img, p, c, (255, 255, 0), 2, cv2.LINE_AA)
+        # line from hand to object
+        cv2.line(img, p, c, (0, 0, 255), 3, cv2.LINE_AA)
         mid = ((p[0] + c[0]) // 2, (p[1] + c[1]) // 2)
-        cv2.putText(img, f"{name}", mid,
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2, cv2.LINE_AA)
+        cv2.putText( img,f"{name}", mid, cv2.FONT_HERSHEY_SIMPLEX,0.8, (0, 255, 255),3,
+            cv2.LINE_AA)
         drawn.add(key)
 
 def alias(n, active_ids):
     n = (n or "").lower()
     n = Alias.get(n,n)
-    if any(a in (20,) for a in active_ids) and n in ("helmet","hat","sports ball","baseball glove"):
+    if any(a in (20,) for a in active_ids) and n in ("helmet", "hat", "sports ball", "baseball glove"):
         n = "cap"
     if any(a in (22,28) for a in active_ids) and n in ("backpack", "handbag", "suitcase"):
-        n = "jacket"
-    if any(a in (30,) for a in active_ids) and n in ("remote","mouse"):
+        n= "jacket"
+    if any(a in (30,) for a in active_ids) and n in ("remote", "mouse"):
         n = "watch"
     return n
 
 def frame_to_idx(fidx, ratio, offset, T):
     i = int(round(fidx * ratio)) + offset
-    return max(0,min(i, T-1))
+    return max(0, min(i, T - 1))
 
-labels_cache = {v: load_labels(case, v) for v in caps}
+labels_cache ={v: load_labels(case, v) for v in caps}
 active_views = set(caps.keys())
 fidx = 0
 while active_views:
@@ -153,32 +169,54 @@ while active_views:
 
     for v, img in frames.items():
         w,h = sizes[v]
-        sk_idx = frame_to_idx(fidx,ratio_vm[v], Frame_off[v],skeles[v].shape[0])
+        sk_idx = frame_to_idx(fidx, ratio_vm[v], Frame_off[v], skeles[v].shape[0])
         sk = skeles[v][sk_idx]
         uv, valid = proj_xyz_to_uv(sk, Kmap[v], w, h, AXmap[v]) #proj_xyz_to_uv takes sign as the 5th positional arg
-        boxes = dets[v]["boxes"][fidx] if fidx < len(dets[v]["boxes"]) else np.empty((0,4),np.float32)
-        raw_names = dets[v]["names"][fidx] if fidx < len(dets[v]["names"]) else np.array([], dtype = object)
+        boxes = (dets[v]["boxes"][fidx]
+                 if fidx < len(dets[v]["boxes"])
+            else np.empty((0, 4), np.float32))
+        raw_names = (dets[v]["names"][fidx]
+            if fidx < len(dets[v]["names"])
+            else np.array([], dtype= object))
 
         active_ids = active_at(labels_cache[v], fidx)
         caption = ", ".join([act_name(aid, cfg) for aid in active_ids]) if active_ids else ""
 
-        names = np.array([alias(rn, active_ids) for rn in raw_names], dtype =object)
+        names = np.array([alias(rn, active_ids) for rn in raw_names], dtype=object)
 
         for (i, j) in BONES:
-            p1=tuple(np.round(uv[i]).astype(int))
+            p1 = tuple(np.round(uv[i]).astype(int))
             p2 = tuple(np.round(uv[j]).astype(int))
-            cv2.line(img, p1, p2, (255,0,0), 2, cv2.LINE_AA)
+            cv2.line(img, p1, p2, (255, 0, 0), 2, cv2.LINE_AA)
         for p in uv:
-            cv2.circle(img, tuple(np.round(p).astype(int)), 3, (255,0,0), -1)
+            cv2.circle(img, tuple(np.round(p).astype(int)), 3, (255, 0, 0), -1)
 
-        draw_boxes(img,boxes, names)
-        inter = associate(uv, boxes, names, Inter_px)
-        draw_interactions(img, uv, boxes, inter)
+        inter =associate(uv, boxes, names, Inter_px, valid)
+        interacting_idx = {bi for (_, bi, _,_) in inter}
+
+        draw_boxes(img, boxes,names, interacting_idx=interacting_idx)
+        draw_interactions(img,uv, boxes, inter)
+
+        hoi_objs = sorted(
+            set((name or "").lower()
+                for (_, _, name, _) in inter
+                if name and (name.lower() not in Sup_draw)))
+
+        hoi_caption = ""
+        if hoi_objs:
+            hoi_caption = "Interacting with: " + ", ".join(hoi_objs)
 
         hud = f"{v} valid= {int(np.sum(valid))}/25"
         if caption:
-            hud += f"action={caption}"
-        cv2.putText(img, hud, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,200,0),2, cv2.LINE_AA)
+            hud += f" action={caption}"
+        cv2.putText(img, hud,(20, 40),cv2.FONT_HERSHEY_SIMPLEX,0.8,(0, 200, 0),2, cv2.LINE_AA)
+
+        if hoi_caption:
+            cv2.putText(img,hoi_caption,(20, 70), cv2.FONT_HERSHEY_SIMPLEX,0.8,
+                (0, 255, 255), 2,cv2.LINE_AA)
+
+        cv2.putText(img, scene_label,(450, 40), cv2.FONT_HERSHEY_SIMPLEX,0.8,
+                    (0, 0, 0), 2,cv2.LINE_AA)
         writers[v].write(img)
     fidx += 1
 
@@ -193,7 +231,7 @@ for v in list(writers.keys()):
     except:
         pass
 
-print("Human object Interaction Videos")
+print("Human object Interaction Videos:")
 for v, p in out_paths.items():
     if os.path.isfile(p):
         print(f"{v} view video in {p}")

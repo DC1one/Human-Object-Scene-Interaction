@@ -14,6 +14,7 @@ offset = {
 auto_off = bool(sync.get("auto_offset")) # false
 auto_max = int(sync.get("auto_offset_max"))
 auto_n = int(sync.get("auto_offset_probe"))
+scene_label = str(sync.get("scene_l"))
 
 """
 Inputs (Aligned skeletons + RGB videos)
@@ -155,6 +156,7 @@ while fidx<T_loop:
         draw_skel(img, uv, {"L": bgr("r"), "M": bgr("b"), "R": bgr("g")}.get(v, bgr("w")))
         cv2.putText(img, f"{v} Joints valid = {int(np.sum(valid))}/25 ",
                     (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,200,0), 2, cv2.LINE_AA)
+        cv2.putText(img, scene_label, (350, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2, cv2.LINE_AA)
         wr[v].write(img)
 
     wrote += 1

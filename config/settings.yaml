@@ -62,6 +62,9 @@ sync:
   auto_offset: false # set it true for auto estimate per view
   auto_offset_max: 60
   auto_offset_probe: 300
+  scene_l: "Scene A01N09: Lab (Human interacting with cell phone, wearing cap and jacket.)" # hard coding because there are no scene lables in dataset
+#  scene_m: "Scene: Lab (Human .................)"
+#  scene_r: "Scene: Lab (Human .................)"
 
 #----------------------------------
 # Object detection
@@ -91,7 +94,7 @@ objects:
   second_iou: 0.5
 
   # HOI scene
-  interact_px: 120 # 80
+  interact_px: 70 # 120
   chair_aliases: [ "chair" ]
   pickup_px: 160
   suppress_draw: ["person"]# dont draw class labels on HOI overlay video
